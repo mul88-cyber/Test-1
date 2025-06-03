@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Dashboard Big Player IDX", layout="wide")
 
@@ -10,6 +11,12 @@ def load_data():
     FILE_ID = "1Pw_3C6EJvzEYsVHagbu7tL5szit6kitl"
     CSV_URL = f"https://drive.google.com/uc?id={FILE_ID}"
     df = pd.read_csv(CSV_URL)
+
+    # Format tanggal
+    if "Last trading Date" in df.columns:
+        df.rename(columns={"Last trading Date": "Date"}, inplace=True)
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
+
     return df.copy()
 
 df = load_data()
@@ -85,7 +92,6 @@ st.plotly_chart(fig_spike, use_container_width=True)
 # Filter Tanggal
 st.subheader("⏰ Filter Tanggal")
 if "Date" in df.columns:
-    df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
     min_date, max_date = df["Date"].min(), df["Date"].max()
     start_date, end_date = st.date_input("Pilih rentang tanggal", [min_date, max_date], min_value=min_date, max_value=max_date)
     if start_date and end_date:
@@ -96,13 +102,10 @@ if "Date" in df.columns:
 else:
     st.warning("Kolom 'Date' tidak ditemukan di data.")
 
-import plotly.graph_objects as go
-
+# Candlestick Chart
 st.subheader("📉 Grafik Candlestick")
-
 selected_candle = st.selectbox("Pilih saham untuk candlestick", df["Stock Code"].unique(), key="candle")
 candle_data = df[df["Stock Code"] == selected_candle].copy()
-
 if not candle_data.empty:
     fig_candle = go.Figure(data=[go.Candlestick(
         x=candle_data.index,
@@ -115,4 +118,3 @@ if not candle_data.empty:
     st.plotly_chart(fig_candle, use_container_width=True)
 else:
     st.warning("Data tidak ditemukan.")
-
