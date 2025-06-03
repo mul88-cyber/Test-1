@@ -96,20 +96,23 @@ if "Date" in df.columns:
 else:
     st.warning("Kolom 'Date' tidak ditemukan di data.")
 
-# Candlestick Chart
+import plotly.graph_objects as go
+
 st.subheader("📉 Grafik Candlestick")
-selected_candle = st.selectbox("Pilih saham untuk candlestick", df["Stock Code"].unique())
+
+selected_candle = st.selectbox("Pilih saham untuk candlestick", df["Stock Code"].unique(), key="candle")
 candle_data = df[df["Stock Code"] == selected_candle].copy()
+
 if not candle_data.empty:
-    fig_candle = px.candlestick(
-        candle_data,
+    fig_candle = go.Figure(data=[go.Candlestick(
         x=candle_data.index,
-        open="Open Price",
-        high="High",
-        low="Low",
-        close="Close",
-        title=f"Candlestick Chart: {selected_candle}"
-    )
+        open=candle_data["Open Price"],
+        high=candle_data["High"],
+        low=candle_data["Low"],
+        close=candle_data["Close"]
+    )])
+    fig_candle.update_layout(title=f"Candlestick Chart: {selected_candle}", xaxis_title="Index", yaxis_title="Harga")
     st.plotly_chart(fig_candle, use_container_width=True)
 else:
     st.warning("Data tidak ditemukan.")
+
