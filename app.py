@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Dashboard Big Player IDX", layout="wide")
@@ -18,7 +17,11 @@ def load_data():
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
             break
 
-    return df.copy()
+    # Merge sector info
+    sector_map = pd.read_csv("https://raw.githubusercontent.com/mul88-cyber/sector-mapping/main/sector.csv")
+    df = pd.merge(df, sector_map, left_on="Stock Code", right_on="Kode Saham", how="left")
+    df.drop(columns=["Kode Saham"], inplace=True)
+    return df
 
 df = load_data()
 
@@ -97,7 +100,7 @@ st.subheader("⭐ Watchlist Saham")
 watchlist = st.multiselect("Pilih saham yang ingin dimonitor", df["Stock Code"].unique())
 if watchlist:
     filtered_watchlist = df[df["Stock Code"].isin(watchlist)]
-    st.dataframe(filtered_watchlist[["Stock Code", "Close", "Volume", "Net Foreign", "VWAP", "RSI"]].sort_values(by="Net Foreign", ascending=False).style.format({
+    st.dataframe(filtered_watchlist[["Date", "Stock Code", "Close", "Volume", "Net Foreign", "VWAP", "RSI"]].sort_values(by="Date", ascending=False).style.format({
         "Close": "{:,.0f}", "Volume": "{:,.0f}", "Net Foreign": "{:,.0f}", "VWAP": "{:,.0f}", "RSI": "{:,.1f}"
     }))
     csv = filtered_watchlist.to_csv(index=False).encode('utf-8')
@@ -127,20 +130,3 @@ if "Date" in df.columns:
         st.warning("Rentang tanggal tidak valid.")
 else:
     st.warning("Kolom 'Date' tidak ditemukan di data.")
-
-# Candlestick Chart
-st.subheader("📉 Grafik Candlestick")
-selected_candle = st.selectbox("Pilih saham untuk candlestick", df["Stock Code"].unique(), key="candle")
-candle_data = df[df["Stock Code"] == selected_candle].copy()
-if not candle_data.empty:
-    fig_candle = go.Figure(data=[go.Candlestick(
-        x=candle_data["Date"],
-        open=candle_data["Open Price"],
-        high=candle_data["High"],
-        low=candle_data["Low"],
-        close=candle_data["Close"]
-    )])
-    fig_candle.update_layout(title=f"Candlestick Chart: {selected_candle}", xaxis_title="Tanggal", yaxis_title="Harga")
-    st.plotly_chart(fig_candle, use_container_width=True)
-else:
-    st.warning("Data tidak ditemukan.")
