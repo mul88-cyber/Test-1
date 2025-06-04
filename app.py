@@ -6,14 +6,12 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Dashboard Big Player IDX", layout="wide")
 
-# Optimasi: cache data besar
 @st.cache_data
 def load_data():
     FILE_ID = "1Pw_3C6EJvzEYsVHagbu7tL5szit6kitl"
     CSV_URL = f"https://drive.google.com/uc?id={FILE_ID}"
     df = pd.read_csv(CSV_URL)
 
-    # Format tanggal fleksibel
     for col in df.columns:
         if col.strip().lower() == "last trading date":
             df.rename(columns={col: "Date"}, inplace=True)
@@ -24,14 +22,10 @@ def load_data():
 
 df = load_data()
 
-# Hitung Net Foreign
+# Hitung indikator
 df["Net Foreign"] = df["Foreign Buy"] - df["Foreign Sell"]
-
-# Hitung VWAP
 df["Typical Price"] = (df["High"] + df["Low"] + df["Close"]) / 3
 df["VWAP"] = (df["Typical Price"] * df["Volume"]).cumsum() / df["Volume"].cumsum()
-
-# Hitung RSI
 delta = df["Close"].diff()
 gain = delta.where(delta > 0, 0)
 loss = -delta.where(delta < 0, 0)
@@ -42,18 +36,16 @@ df["RSI"] = 100 - (100 / (1 + rs))
 
 st.title("📊 Dashboard Analisa Big Player (Bandarmologi)")
 
-# Top Net Buy - Periode
+# Top Net Buy
 st.subheader("🧠 Top Saham Net Buy Asing")
 if "Date" in df.columns:
     now = df["Date"].max()
     options = ["All Time", "3 Bulan Terakhir", "1 Bulan Terakhir"]
     periode = st.selectbox("Pilih periode", options)
     if periode == "3 Bulan Terakhir":
-        start_date = now - timedelta(days=90)
-        df_filtered = df[df["Date"] >= start_date]
+        df_filtered = df[df["Date"] >= now - timedelta(days=90)]
     elif periode == "1 Bulan Terakhir":
-        start_date = now - timedelta(days=30)
-        df_filtered = df[df["Date"] >= start_date]
+        df_filtered = df[df["Date"] >= now - timedelta(days=30)]
     else:
         df_filtered = df.copy()
 
@@ -70,32 +62,34 @@ if "Date" in df.columns:
         .head(10)
     )
 
-    st.dataframe(top_buy)
+    st.dataframe(top_buy.style.format({
+        "Net Foreign": "{:,.0f}", "Volume": "{:,.0f}", "Close": "{:,.0f}"
+    }))
     fig1 = px.bar(top_buy, x="Stock Code", y="Net Foreign", title=f"Top Net Foreign Buy - {periode}")
     st.plotly_chart(fig1, use_container_width=True)
 else:
     st.warning("Data tidak memiliki kolom Date untuk difilter.")
 
-# Filter Akumulasi
+# Deteksi Akumulasi
 st.subheader("🔍 Deteksi Akumulasi (Volume Naik, Harga Sideways)")
 df["Price Change %"] = (df["Close"] - df["Open Price"]) / df["Open Price"] * 100
 accumulated = df[(df["Volume"] > df["Volume"].median()) & (df["Price Change %"].abs() < 2)]
-st.dataframe(accumulated[["Stock Code", "Volume", "Close", "Price Change %"]].sort_values(by="Volume", ascending=False).head(10))
+st.dataframe(accumulated[["Date", "Stock Code", "Volume", "Close", "Price Change %"]].sort_values(by="Volume", ascending=False).head(10).style.format({"Volume": "{:,.0f}", "Close": "{:,.0f}"}))
 
 # Transaksi Non Reguler
 st.subheader("📦 Saham dengan Transaksi Non-Regular")
 non_reg = df[df["Non Regular Volume"] > 0]
-st.dataframe(non_reg[["Stock Code", "Non Regular Volume", "Non Regular Value"]].sort_values(by="Non Regular Value", ascending=False).head(10))
+st.dataframe(non_reg[["Date", "Stock Code", "Non Regular Volume", "Non Regular Value"]].sort_values(by="Non Regular Value", ascending=False).head(10).style.format({"Non Regular Volume": "{:,.0f}", "Non Regular Value": "{:,.0f}"}))
 
 # VWAP & RSI
 st.subheader("📈 VWAP Chart (Harga vs VWAP)")
 selected_stock = st.selectbox("Pilih saham untuk lihat VWAP & RSI", df["Stock Code"].unique())
 vwap_data = df[df["Stock Code"] == selected_stock].copy().reset_index(drop=True)
-fig_vwap = px.line(vwap_data, y=["Close", "VWAP"], labels={"value": "Harga", "index": "Hari ke-"}, title=f"{selected_stock} - Harga vs VWAP")
+fig_vwap = px.line(vwap_data, x="Date", y=["Close", "VWAP"], labels={"value": "Harga", "Date": "Tanggal"}, title=f"{selected_stock} - Harga vs VWAP")
 st.plotly_chart(fig_vwap, use_container_width=True)
 
 st.subheader("📉 RSI (Relative Strength Index)")
-fig_rsi = px.line(vwap_data, y="RSI", labels={"value": "RSI", "index": "Hari ke-"}, title=f"{selected_stock} - RSI 14 Hari")
+fig_rsi = px.line(vwap_data, x="Date", y="RSI", labels={"value": "RSI", "Date": "Tanggal"}, title=f"{selected_stock} - RSI 14 Hari")
 st.plotly_chart(fig_rsi, use_container_width=True)
 
 # Watchlist
@@ -103,7 +97,9 @@ st.subheader("⭐ Watchlist Saham")
 watchlist = st.multiselect("Pilih saham yang ingin dimonitor", df["Stock Code"].unique())
 if watchlist:
     filtered_watchlist = df[df["Stock Code"].isin(watchlist)]
-    st.dataframe(filtered_watchlist[["Stock Code", "Close", "Volume", "Net Foreign", "VWAP", "RSI"]].sort_values(by="Net Foreign", ascending=False))
+    st.dataframe(filtered_watchlist[["Stock Code", "Close", "Volume", "Net Foreign", "VWAP", "RSI"]].sort_values(by="Net Foreign", ascending=False).style.format({
+        "Close": "{:,.0f}", "Volume": "{:,.0f}", "Net Foreign": "{:,.0f}", "VWAP": "{:,.0f}", "RSI": "{:,.1f}"
+    }))
     csv = filtered_watchlist.to_csv(index=False).encode('utf-8')
     st.download_button("📂 Download Watchlist sebagai CSV", data=csv, file_name="watchlist.csv", mime="text/csv")
 else:
@@ -138,13 +134,13 @@ selected_candle = st.selectbox("Pilih saham untuk candlestick", df["Stock Code"]
 candle_data = df[df["Stock Code"] == selected_candle].copy()
 if not candle_data.empty:
     fig_candle = go.Figure(data=[go.Candlestick(
-        x=candle_data.index,
+        x=candle_data["Date"],
         open=candle_data["Open Price"],
         high=candle_data["High"],
         low=candle_data["Low"],
         close=candle_data["Close"]
     )])
-    fig_candle.update_layout(title=f"Candlestick Chart: {selected_candle}", xaxis_title="Index", yaxis_title="Harga")
+    fig_candle.update_layout(title=f"Candlestick Chart: {selected_candle}", xaxis_title="Tanggal", yaxis_title="Harga")
     st.plotly_chart(fig_candle, use_container_width=True)
 else:
     st.warning("Data tidak ditemukan.")
