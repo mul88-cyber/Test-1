@@ -156,7 +156,6 @@ st.dataframe(filtered[cols_final].sort_values(by="Date", ascending=False).style.
     "Open Price": "{:,.0f}", "High": "{:,.0f}", "Low": "{:,.0f}", "Close": "{:,.0f}",
     "Change": "{:,.0f}", "Change %": "{:.2f}%"
 }))
-[[AKAN DISISIPKAN FITUR BARU DI BAWAH HEADER YANG ADA]]
 
 # --- 📢 Alert Harian ---
 st.header("📢 Alert Harian (Volume, Net Foreign, Harga)")
