@@ -29,7 +29,6 @@ def load_data():
 
 df = load_data()
 
-# Indikator
 try:
     df["Net Foreign"] = df["Foreign Buy"] - df["Foreign Sell"]
     df["Typical Price"] = (df["High"] + df["Low"] + df["Close"]) / 3
@@ -46,7 +45,6 @@ except Exception as e:
 
 st.title(":chart_with_upwards_trend: Dashboard Analisa Big Player (Bandarmologi)")
 
-# --- Top Net Buy ---
 st.header("🧲 Top Saham Net Buy Asing")
 now = df["Date"].max()
 periode = st.selectbox("Pilih periode", ["All Time", "3 Bulan Terakhir", "1 Bulan Terakhir"])
@@ -67,7 +65,6 @@ st.dataframe(top_buy.style.format({"Net Foreign": ",.0f", "Volume": ",.0f", "Clo
 fig1 = px.bar(top_buy, x="Stock Code", y="Net Foreign", title=f"Top Net Foreign Buy - {periode}")
 st.plotly_chart(fig1, use_container_width=True)
 
-# --- Deteksi Akumulasi ---
 st.header("🔍 Deteksi Akumulasi (Volume Naik, Harga Sideways)")
 df["Price Change %"] = (df["Close"] - df["Open Price"]) / df["Open Price"] * 100
 akumulasi = df[(df["Volume"] > df["Volume"].rolling(5).mean()) & (df["Price Change %"].abs() < 2)]
@@ -81,7 +78,6 @@ st.dataframe(akumulasi_top.style.format({"Volume": ",.0f", "Price Change %": ".2
 fig_aku = px.bar(akumulasi_top, x="Stock Code", y="Volume", title="Top 10 Saham Akumulasi - Volume Tinggi, Harga Sideways")
 st.plotly_chart(fig_aku, use_container_width=True)
 
-# --- Foreign Flow ---
 st.header("🌍 Foreign Flow Harian per Saham")
 selected_ff = st.selectbox("Pilih saham", df["Stock Code"].unique())
 if pd.api.types.is_datetime64_any_dtype(df["Date"]):
@@ -94,7 +90,6 @@ if pd.api.types.is_datetime64_any_dtype(df["Date"]):
     else:
         st.warning("Data tanggal tidak tersedia atau tidak valid.")
 
-# --- VWAP & RSI ---
 st.header("📈 VWAP & RSI")
 selected_stock = st.selectbox("Pilih saham", df["Stock Code"].unique(), key="vwap")
 vwap_data = df[df["Stock Code"] == selected_stock].copy().reset_index(drop=True)
@@ -103,7 +98,6 @@ st.plotly_chart(fig_vwap, use_container_width=True)
 fig_rsi = px.line(vwap_data, x="Date", y="RSI", title=f"{selected_stock} - RSI 14 Hari")
 st.plotly_chart(fig_rsi, use_container_width=True)
 
-# --- Watchlist ---
 st.header("⭐ Watchlist Saham")
 watchlist = st.multiselect("Pilih saham", df["Stock Code"].unique())
 if watchlist:
@@ -112,7 +106,6 @@ if watchlist:
                  .sort_values(by="Date", ascending=False)
                  .style.format({"Close": ",.0f", "Volume": ",.0f", "Net Foreign": ",.0f", "VWAP": ",.0f", "RSI": ".1f"}))
 
-# --- Heatmap Volume Spike ---
 st.header("🔥 Heatmap Volume Spike")
 avg_volume = df.groupby("Stock Code")["Volume"].mean().reset_index(name="Avg Volume")
 df_spike = pd.merge(df, avg_volume, on="Stock Code")
@@ -121,7 +114,6 @@ spike_top = df_spike.sort_values(by="Volume Spike Ratio", ascending=False).dropn
 fig_spike = px.density_heatmap(spike_top, x="Stock Code", y="Volume Spike Ratio", z="Volume", color_continuous_scale="Inferno")
 st.plotly_chart(fig_spike, use_container_width=True)
 
-# --- Filter Data Mentah ---
 st.header("⏰ Filter Tanggal & Saham (Data Mentah)")
 selected_symbols = st.multiselect("Filter saham", df["Stock Code"].unique())
 start_date, end_date = st.date_input("Rentang tanggal", [df["Date"].min(), df["Date"].max()])
@@ -135,20 +127,16 @@ cols_show = [
     "Change", "Change %", "Volume", "Frequency", "Foreign Sell", "Foreign Buy", "Net Foreign"
 ]
 cols_final = [col for col in cols_show if col in filtered.columns]
-data_to_show = filtered[cols_final].sort_values(by="Date", ascending=False)
+data_to_show = filtered[cols_final].sort_values(by="Date", ascending=False).copy()
 
-if len(data_to_show) * len(data_to_show.columns) < 262144:
-    st.dataframe(data_to_show.style.format({
-        "Volume": ",.0f", "Frequency": ",.0f", "Foreign Sell": ",.0f",
-        "Foreign Buy": ",.0f", "Net Foreign": ",.0f", "Previous": ",.0f",
-        "Open Price": ",.0f", "High": ",.0f", "Low": ",.0f", "Close": ",.0f",
-        "Change": ",.0f", "Change %": ".2f%"
-    }), use_container_width=True)
-else:
-    st.warning("Dataset terlalu besar, ditampilkan tanpa format angka.")
-    st.dataframe(data_to_show, use_container_width=True)
+for col in ["Volume", "Frequency", "Foreign Sell", "Foreign Buy", "Net Foreign", "Previous", "Open Price", "High", "Low", "Close", "Change"]:
+    if col in data_to_show.columns:
+        data_to_show[col] = data_to_show[col].apply(lambda x: f"{x:,.0f}")
+if "Change %" in data_to_show.columns:
+    data_to_show["Change %"] = data_to_show["Change %"].apply(lambda x: f"{x:.2f}%")
 
-# --- 📢 Alert Harian ---
+st.dataframe(data_to_show)
+
 st.header("📢 Alert Harian")
 latest_df = df[df["Date"] == df["Date"].max()]
 alerts = latest_df[(latest_df["Volume"] > latest_df["Volume"].median()*2) |
@@ -158,7 +146,6 @@ st.dataframe(alerts[["Date", "Stock Code", "Volume", "Net Foreign", "Change %"]]
              .sort_values(by="Net Foreign", ascending=False).style.format({
     "Volume": ",.0f", "Net Foreign": ",.0f", "Change %": ".2f%"}))
 
-# --- 🔁 Integrasi Multi Hari ---
 st.header("🔁 Integrasi Multi Hari (5 Hari Terakhir)")
 cutoff = df["Date"].max() - timedelta(days=5)
 multi_df = df[df["Date"] >= cutoff]
