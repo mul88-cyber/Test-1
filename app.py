@@ -88,8 +88,8 @@ st.plotly_chart(fig_aku, use_container_width=True)
 # --- Foreign Flow per Saham (Bulanan) ---
 st.header("🌍 Foreign Flow Harian per Saham")
 selected_ff = st.selectbox("Pilih saham untuk melihat foreign flow harian", df["Stock Code"].unique())
-unique_months = df["Date"].dt.to_period("M").unique().sort_values(ascending=False)
-selected_month = st.selectbox("Pilih bulan", unique_months.astype(str))
+unique_months = sorted(df["Date"].dt.to_period("M").unique(), reverse=True)
+selected_month = st.selectbox("Pilih bulan", [str(m) for m in unique_months])
 month_df = df[(df["Stock Code"] == selected_ff) & (df["Date"].dt.to_period("M") == pd.Period(selected_month))]
 fig_ff = px.line(month_df.sort_values("Date"), x="Date", y="Net Foreign", title=f"Foreign Flow Harian - {selected_ff} ({selected_month})", markers=True)
 st.plotly_chart(fig_ff, use_container_width=True)
