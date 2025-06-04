@@ -20,6 +20,8 @@ def load_data():
     # Load sector mapping from Google Sheets
     sector_url = "https://docs.google.com/spreadsheets/d/1wk5lkVqAMgFdcYBUKXqdIS2Rx3cX8pFgxSiXgeqEMjs/export?format=csv"
     sector_df = pd.read_csv(sector_url)
+    sector_df.columns = sector_df.columns.str.strip()
+    sector_df.rename(columns={sector_df.columns[1]: "Sector"}, inplace=True)
     df = pd.merge(df, sector_df, left_on="Stock Code", right_on="Kode Saham", how="left")
     df.drop(columns=["Kode Saham"], inplace=True)
     return df
