@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Dashboard Big Player IDX", layout="wide")
 
@@ -41,12 +42,39 @@ df["RSI"] = 100 - (100 / (1 + rs))
 
 st.title("📊 Dashboard Analisa Big Player (Bandarmologi)")
 
-# Top Net Buy
-st.subheader("🧠 Top 10 Saham Net Buy Asing")
-top_foreign = df.sort_values(by="Net Foreign", ascending=False).head(10)
-st.dataframe(top_foreign[["Stock Code", "Company Name", "Net Foreign", "Volume", "Close"]])
-fig1 = px.bar(top_foreign, x="Stock Code", y="Net Foreign", title="Top Net Foreign Buy")
-st.plotly_chart(fig1, use_container_width=True)
+# Top Net Buy - Periode
+st.subheader("🧠 Top Saham Net Buy Asing")
+if "Date" in df.columns:
+    now = df["Date"].max()
+    options = ["All Time", "3 Bulan Terakhir", "1 Bulan Terakhir"]
+    periode = st.selectbox("Pilih periode", options)
+    if periode == "3 Bulan Terakhir":
+        start_date = now - timedelta(days=90)
+        df_filtered = df[df["Date"] >= start_date]
+    elif periode == "1 Bulan Terakhir":
+        start_date = now - timedelta(days=30)
+        df_filtered = df[df["Date"] >= start_date]
+    else:
+        df_filtered = df.copy()
+
+    top_buy = (
+        df_filtered.groupby("Stock Code")
+        .agg({
+            "Company Name": "first",
+            "Net Foreign": "sum",
+            "Volume": "sum",
+            "Close": "last"
+        })
+        .reset_index()
+        .sort_values(by="Net Foreign", ascending=False)
+        .head(10)
+    )
+
+    st.dataframe(top_buy)
+    fig1 = px.bar(top_buy, x="Stock Code", y="Net Foreign", title=f"Top Net Foreign Buy - {periode}")
+    st.plotly_chart(fig1, use_container_width=True)
+else:
+    st.warning("Data tidak memiliki kolom Date untuk difilter.")
 
 # Filter Akumulasi
 st.subheader("🔍 Deteksi Akumulasi (Volume Naik, Harga Sideways)")
