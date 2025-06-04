@@ -9,7 +9,11 @@ st.set_page_config(page_title="Dashboard Big Player IDX", layout="wide")
 def load_data():
     FILE_ID = "1Pw_3C6EJvzEYsVHagbu7tL5szit6kitl"
     CSV_URL = f"https://drive.google.com/uc?id={FILE_ID}"
-    df = pd.read_csv(CSV_URL)
+    try:
+        df = pd.read_csv(CSV_URL)
+    except Exception as e:
+        st.error(f"Gagal mengunduh data dari Google Drive: {e}")
+        st.stop()
 
     for col in df.columns:
         if col.strip().lower() == "last trading date":
@@ -17,12 +21,29 @@ def load_data():
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
             break
 
+    if df["Date"].isna().all():
+        st.error("Semua nilai tanggal tidak valid. Periksa format 'Last Trading Date' di sumber.")
+        st.stop()
+
     sector_url = "https://docs.google.com/spreadsheets/d/1wk5lkVqAMgFdcYBUKXqdIS2Rx3cX8pFgxSiXgeqEMjs/export?format=csv"
-    sector_df = pd.read_csv(sector_url)
+    try:
+        sector_df = pd.read_csv(sector_url)
+    except Exception as e:
+        st.error(f"Gagal mengunduh data sektor: {e}")
+        st.stop()
+
     sector_df.columns = sector_df.columns.str.strip()
-    sector_df.rename(columns={sector_df.columns[1]: "Sector"}, inplace=True)
-    df = pd.merge(df, sector_df, left_on="Stock Code", right_on="Kode Saham", how="left")
-    df.drop(columns=["Kode Saham"], inplace=True)
+    if len(sector_df.columns) >= 2:
+        sector_df.rename(columns={sector_df.columns[1]: "Sector"}, inplace=True)
+        df = pd.merge(df, sector_df, left_on="Stock Code", right_on="Kode Saham", how="left")
+        df.drop(columns=["Kode Saham"], inplace=True, errors='ignore')
+
+    required_cols = ["Stock Code", "Close", "Volume", "Foreign Buy", "Foreign Sell"]
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        st.error(f"Dataset kekurangan kolom penting: {missing_cols}")
+        st.stop()
+
     return df
 
 df = load_data()
@@ -40,7 +61,7 @@ try:
     rs = avg_gain / avg_loss
     df["RSI"] = 100 - (100 / (1 + rs))
 except Exception as e:
-    st.error(f"Error menghitung indikator: {e}")
+    st.warning(f"Indikator tidak dapat dihitung sepenuhnya: {e}")
 
 st.title(":chart_with_upwards_trend: Dashboard Analisa Big Player (Bandarmologi)")
 
