@@ -17,9 +17,10 @@ def load_data():
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
             break
 
-    # Merge sector info
-    sector_map = pd.read_csv("https://raw.githubusercontent.com/mul88-cyber/sector-mapping/main/sector.csv")
-    df = pd.merge(df, sector_map, left_on="Stock Code", right_on="Kode Saham", how="left")
+    # Load sector mapping from Google Sheets
+    sector_url = "https://docs.google.com/spreadsheets/d/1wk5lkVqAMgFdcYBUKXqdIS2Rx3cX8pFgxSiXgeqEMjs/export?format=csv"
+    sector_df = pd.read_csv(sector_url)
+    df = pd.merge(df, sector_df, left_on="Stock Code", right_on="Kode Saham", how="left")
     df.drop(columns=["Kode Saham"], inplace=True)
     return df
 
@@ -117,6 +118,15 @@ df_spike["Volume Spike Ratio"] = df_spike["Volume"] / df_spike["Avg Volume"]
 spike_top = df_spike.sort_values(by="Volume Spike Ratio", ascending=False).dropna().head(20)
 fig_spike = px.density_heatmap(spike_top, x="Stock Code", y="Volume Spike Ratio", z="Volume", color_continuous_scale="Inferno", title="Top 20 Saham dengan Volume Spike")
 st.plotly_chart(fig_spike, use_container_width=True)
+
+# Heatmap per Sektor
+st.subheader("🌍 Heatmap Berdasarkan Sektor")
+sector_summary = df.groupby("Sector").agg({
+    "Net Foreign": "sum",
+    "Volume": "sum"
+}).reset_index().sort_values(by="Net Foreign", ascending=False)
+fig_sector = px.treemap(sector_summary, path=["Sector"], values="Net Foreign", color="Volume", title="Net Foreign per Sektor (Warna = Volume)", color_continuous_scale="Viridis")
+st.plotly_chart(fig_sector, use_container_width=True)
 
 # Filter Tanggal
 st.subheader("⏰ Filter Tanggal")
