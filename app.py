@@ -156,3 +156,37 @@ st.dataframe(filtered[cols_final].sort_values(by="Date", ascending=False).style.
     "Open Price": "{:,.0f}", "High": "{:,.0f}", "Low": "{:,.0f}", "Close": "{:,.0f}",
     "Change": "{:,.0f}", "Change %": "{:.2f}%"
 }))
+[[AKAN DISISIPKAN FITUR BARU DI BAWAH HEADER YANG ADA]]
+
+# --- 📢 Alert Harian ---
+st.header("📢 Alert Harian (Volume, Net Foreign, Harga)")
+latest_date = df["Date"].max()
+latest_df = df[df["Date"] == latest_date]
+alerts = latest_df[(latest_df["Volume"] > latest_df["Volume"].median() * 2) |
+                   (latest_df["Net Foreign"].abs() > latest_df["Net Foreign"].median() * 2) |
+                   (latest_df["Change %"].abs() > 5)]
+
+st.dataframe(alerts[["Date", "Stock Code", "Volume", "Net Foreign", "Change %"]].sort_values(by="Net Foreign", ascending=False).style.format({
+    "Volume": "{:,.0f}", "Net Foreign": "{:,.0f}", "Change %": "{:.2f}%"
+}))
+
+# --- 🔁 Integrasi Multi Hari (5 Hari Terakhir) ---
+st.header("🔁 Integrasi Multi Hari (5 Hari Terakhir)")
+cutoff = df["Date"].max() - timedelta(days=5)
+multi_df = df[df["Date"] >= cutoff]
+summary_multi = (
+    multi_df.groupby("Stock Code")
+    .agg({
+        "Net Foreign": "mean",
+        "Volume": "mean",
+        "Close": ["first", "last"]
+    })
+    .reset_index()
+)
+summary_multi.columns = ["Stock Code", "Net Foreign Avg", "Volume Avg", "Close First", "Close Last"]
+summary_multi["Change 5D %"] = (summary_multi["Close Last"] - summary_multi["Close First"]) / summary_multi["Close First"] * 100
+summary_multi = summary_multi.sort_values(by="Net Foreign Avg", ascending=False).head(10)
+
+st.dataframe(summary_multi.style.format({
+    "Net Foreign Avg": "{:,.0f}", "Volume Avg": "{:,.0f}", "Change 5D %": "{:.2f}%"
+}))
