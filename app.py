@@ -70,7 +70,7 @@ st.dataframe(top_buy.style.format({"Net Foreign": "{:,.0f}", "Volume": "{:,.0f}"
 fig1 = px.bar(top_buy, x="Stock Code", y="Net Foreign", title=f"Top Net Foreign Buy - {periode}")
 st.plotly_chart(fig1, use_container_width=True)
 
-# --- Deteksi Akumulasi (Multi Saham) ---
+# --- Deteksi Akumulasi ---
 st.header("🔍 Deteksi Akumulasi (Volume Naik, Harga Sideways)")
 df["Price Change %"] = (df["Close"] - df["Open Price"]) / df["Open Price"] * 100
 akumulasi = df[(df["Volume"] > df["Volume"].rolling(5).mean()) & (df["Price Change %"].abs() < 2)]
@@ -85,11 +85,13 @@ st.dataframe(akumulasi_top.style.format({"Volume": "{:,.0f}", "Price Change %": 
 fig_aku = px.bar(akumulasi_top, x="Stock Code", y="Volume", title="Top 10 Saham Akumulasi - Rata2 Volume Tinggi, Harga Sideways")
 st.plotly_chart(fig_aku, use_container_width=True)
 
-# --- Foreign Flow per Saham ---
+# --- Foreign Flow per Saham (Bulanan) ---
 st.header("🌍 Foreign Flow Harian per Saham")
 selected_ff = st.selectbox("Pilih saham untuk melihat foreign flow harian", df["Stock Code"].unique())
-df_ff = df[df["Stock Code"] == selected_ff].sort_values("Date")
-fig_ff = px.line(df_ff, x="Date", y="Net Foreign", title=f"Foreign Flow Harian - {selected_ff}", markers=True)
+unique_months = df["Date"].dt.to_period("M").unique().sort_values(ascending=False)
+selected_month = st.selectbox("Pilih bulan", unique_months.astype(str))
+month_df = df[(df["Stock Code"] == selected_ff) & (df["Date"].dt.to_period("M") == pd.Period(selected_month))]
+fig_ff = px.line(month_df.sort_values("Date"), x="Date", y="Net Foreign", title=f"Foreign Flow Harian - {selected_ff} ({selected_month})", markers=True)
 st.plotly_chart(fig_ff, use_container_width=True)
 
 # --- VWAP & RSI ---
@@ -130,12 +132,27 @@ sector_summary = df.groupby("Sector").agg({"Net Foreign": "sum", "Volume": "sum"
 fig_sector = px.treemap(sector_summary, path=["Sector"], values="Net Foreign", color="Volume", title="Net Foreign per Sektor (Warna = Volume)", color_continuous_scale="Viridis")
 st.plotly_chart(fig_sector, use_container_width=True)
 
-# --- Filter Tanggal Global ---
+# --- Filter Tanggal Data Mentah + Filter Saham + Kolom Khusus ---
 st.header("⏰ Filter Tanggal Data Mentah")
+unique_symbols = df["Stock Code"].unique()
+selected_symbols = st.multiselect("Pilih saham", unique_symbols)
 min_date, max_date = df["Date"].min(), df["Date"].max()
 start_date, end_date = st.date_input("Pilih rentang tanggal", [min_date, max_date], min_value=min_date, max_value=max_date)
+
+filtered = df.copy()
+if selected_symbols:
+    filtered = filtered[filtered["Stock Code"].isin(selected_symbols)]
 if start_date and end_date:
-    df_filtered = df[(df["Date"] >= pd.to_datetime(start_date)) & (df["Date"] <= pd.to_datetime(end_date))]
-    st.dataframe(df_filtered.head(50))
-else:
-    st.warning("Rentang tanggal tidak valid.")
+    filtered = filtered[(filtered["Date"] >= pd.to_datetime(start_date)) & (filtered["Date"] <= pd.to_datetime(end_date))]
+
+cols_to_show = [
+    "Date", "Stock Code", "Previous", "Open Price", "High", "Low", "Close",
+    "Change", "Change %", "Volume", "Frequency", "Foreign Sell", "Foreign Buy", "Net Foreign"
+]
+cols_final = [col for col in cols_to_show if col in filtered.columns]
+st.dataframe(filtered[cols_final].sort_values(by="Date", ascending=False).style.format({
+    "Volume": "{:,.0f}", "Frequency": "{:,.0f}", "Foreign Sell": "{:,.0f}",
+    "Foreign Buy": "{:,.0f}", "Net Foreign": "{:,.0f}", "Previous": "{:,.0f}",
+    "Open Price": "{:,.0f}", "High": "{:,.0f}", "Low": "{:,.0f}", "Close": "{:,.0f}",
+    "Change": "{:,.0f}", "Change %": "{:.2f}%"
+}))
