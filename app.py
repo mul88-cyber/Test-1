@@ -114,29 +114,6 @@ spike_top = df_spike.sort_values(by="Volume Spike Ratio", ascending=False).dropn
 fig_spike = px.density_heatmap(spike_top, x="Stock Code", y="Volume Spike Ratio", z="Volume", color_continuous_scale="Inferno")
 st.plotly_chart(fig_spike, use_container_width=True)
 
-st.header("⏰ Filter Tanggal & Saham (Data Mentah)")
-selected_symbols = st.multiselect("Filter saham", df["Stock Code"].unique())
-start_date, end_date = st.date_input("Rentang tanggal", [df["Date"].min(), df["Date"].max()])
-filtered = df.copy()
-if selected_symbols:
-    filtered = filtered[filtered["Stock Code"].isin(selected_symbols)]
-filtered = filtered[(filtered["Date"] >= pd.to_datetime(start_date)) & (filtered["Date"] <= pd.to_datetime(end_date))]
-
-cols_show = [
-    "Date", "Stock Code", "Previous", "Open Price", "High", "Low", "Close",
-    "Change", "Change %", "Volume", "Frequency", "Foreign Sell", "Foreign Buy", "Net Foreign"
-]
-cols_final = [col for col in cols_show if col in filtered.columns]
-data_to_show = filtered[cols_final].sort_values(by="Date", ascending=False).copy()
-
-for col in ["Volume", "Frequency", "Foreign Sell", "Foreign Buy", "Net Foreign", "Previous", "Open Price", "High", "Low", "Close", "Change"]:
-    if col in data_to_show.columns:
-        data_to_show[col] = data_to_show[col].apply(lambda x: f"{x:,.0f}")
-if "Change %" in data_to_show.columns:
-    data_to_show["Change %"] = data_to_show["Change %"].apply(lambda x: f"{x:.2f}%")
-
-st.dataframe(data_to_show)
-
 st.header("📢 Alert Harian")
 latest_df = df[df["Date"] == df["Date"].max()]
 alerts = latest_df[(latest_df["Volume"] > latest_df["Volume"].median()*2) |
