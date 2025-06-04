@@ -12,10 +12,12 @@ def load_data():
     CSV_URL = f"https://drive.google.com/uc?id={FILE_ID}"
     df = pd.read_csv(CSV_URL)
 
-    # Format tanggal
-    if "Last trading Date" in df.columns:
-        df.rename(columns={"Last trading Date": "Date"}, inplace=True)
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
+    # Format tanggal fleksibel
+    for col in df.columns:
+        if col.strip().lower() == "last trading date":
+            df.rename(columns={col: "Date"}, inplace=True)
+            df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
+            break
 
     return df.copy()
 
