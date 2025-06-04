@@ -130,6 +130,26 @@ sector_summary = df.groupby("Sector").agg({
 fig_sector = px.treemap(sector_summary, path=["Sector"], values="Net Foreign", color="Volume", title="Net Foreign per Sektor (Warna = Volume)", color_continuous_scale="Viridis")
 st.plotly_chart(fig_sector, use_container_width=True)
 
+# Foreign Flow
+st.subheader("🌍 Foreign Flow (Aliran Dana Asing)")
+if "Date" in df.columns:
+    date_range = st.date_input("Pilih rentang tanggal untuk foreign flow", [df["Date"].min(), df["Date"].max()])
+    if len(date_range) == 2:
+        start_date, end_date = date_range
+        flow_df = df[(df["Date"] >= pd.to_datetime(start_date)) & (df["Date"] <= pd.to_datetime(end_date))]
+
+        top_foreign = (
+            flow_df.groupby("Stock Code")["Net Foreign"]
+            .sum().reset_index().sort_values(by="Net Foreign", ascending=False).head(10)
+        )
+        st.dataframe(top_foreign.style.format({"Net Foreign": "{:,.0f}"}))
+
+        fig_flow = px.bar(top_foreign, x="Stock Code", y="Net Foreign",
+                          title="Top 10 Aliran Dana Asing (Net Foreign)", color="Net Foreign")
+        st.plotly_chart(fig_flow, use_container_width=True)
+else:
+    st.warning("Data tidak memiliki kolom Date untuk foreign flow.")
+
 # Filter Tanggal
 st.subheader("⏰ Filter Tanggal")
 if "Date" in df.columns:
